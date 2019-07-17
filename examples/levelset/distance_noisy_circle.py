@@ -1,7 +1,7 @@
 from __future__ import print_function
 import torch, torch.nn as nn, numpy as np, matplotlib.pyplot as plt
 from topologylayer.nn import LevelSetLayer2D, SumBarcodeLengths, PartialSumBarcodeLengths
-import pdb
+#import pdb
 # generate circle on grid
 # generate circle on grid
 n = 50
@@ -28,12 +28,16 @@ class TopLoss(nn.Module):
     def __init__(self, size):
         super(TopLoss, self).__init__()
         self.pdfn = LevelSetLayer2D(size=size,  sublevel=False)
+        self.pdfn_g = LevelSetLayer2D(size=size, sublevel=False)
         self.topfn = PartialSumBarcodeLengths(dim=1, skip=1)
         self.topfn2 = SumBarcodeLengths(dim=0)
 
     def forward(self, beta, ground):
         dgminfo = self.pdfn(beta)
+        dgminfo_g = self.pdfn_g(ground)
+        
         ################## Debugging ###################
+        """
         count = 0
         total_start_count = 0
         total_end_count = 0
@@ -45,7 +49,7 @@ class TopLoss(nn.Module):
             if dgminfo[0][0][i][0]==dgminfo[0][0][i][1]:
                 count = count + 1
         #pdb.set_trace()
-        dgminfo_g = self.pdfn(ground)
+        
         count_g = 0
         total_start_count_g = 0
         total_end_count_g = 0
@@ -57,45 +61,47 @@ class TopLoss(nn.Module):
             if dgminfo_g[0][0][i][0]==dgminfo_g[0][0][i][1]:
                 count_g = count_g + 1
         #pdb.set_trace()
-
+        """
+        
         ############ Code starts ##########################
         ordered_prediction = []
         ordered_ground_truth = []
-        data = np.copy(dgminfo)
+        # clean up the dgm info
+        reduced_dgminfo = []
+        reduced_dgminfo_g = []
         for i in dgminfo[0][0]:
-            # find j which is closest to i
             if abs(i[0]) != np.inf and abs(i[1])!= np.inf and i[0]!=i[1]:
-                dist = np.inf
-                shortest = None
-                index = 0
-                zero_hom_g = dgminfo_g[0][0]
-                zero_hom = i
-                if len(zero_hom_g) > 0:
-                    for j in range(len(zero_hom_g)):
-                        if abs(zero_hom_g[j][0]) != np.inf and abs(zero_hom_g[j][1])!= np.inf and zero_hom_g[j][0]!=zero_hom_g[j][1]:
-                            #pdb.set_trace()
-                            if torch.norm(zero_hom-zero_hom_g[j], 2) < dist:
-                                dist = torch.norm(zero_hom-zero_hom_g[j])
-                                shortest = zero_hom_g[j]
-                                index = j
-                    zero_hom_g = zero_hom_g[zero_hom_g!=shortest]
-                    #zero_hom_g.pop(index)
-                    #pdb.set_trace()
-                    ordered_prediction.append(zero_hom)
-                    ordered_ground_truth.append(shortest)
-                    #torch.cat([ordered_prediction,zero_hom],0)
-                    #torch.cat((ordered_ground_truth,shortest),0)
-                else:
-                    #torch.cat((ordered_prediction,zero_hom),0)
-                    #torch.cat((ordered_ground_truth,[torch.mean(zero_hom), torch.mean(zero_hom)]),0)
-                    ordered_prediction.append(zero_hom)
-                    ordered_ground_truth.append([torch.mean(zero_hom), torch.mean(zero_hom)])
-        pdb.set_trace() 
+                reduced_dgminfo.append(i)
+        for i in dgminfo_g[0][0]:
+            if abs(i[0]) != np.inf and abs(i[1])!= np.inf and i[0]!=i[1]:
+                reduced_dgminfo_g.append(i)
+        reduced_dgminfo = torch.stack(reduced_dgminfo)
+        reduced_dgminfo_g = torch.stack(reduced_dgminfo_g)
+        #pdb.set_trace()
 
+        for i in reduced_dgminfo:
+            # find j which is closest to i
+            dist = np.inf
+            shortest = None
+            index = 0
+            if len(reduced_dgminfo_g) > 0:
+                for j in range(len(reduced_dgminfo_g)):
+                    if torch.norm(i-reduced_dgminfo_g[j], 2) < dist:
+                        dist = torch.norm(i-reduced_dgminfo_g[j])
+                        shortest = reduced_dgminfo_g[j]
+                        index = j
+                reduced_dgminfo_g = torch.cat([reduced_dgminfo_g[0:index], reduced_dgminfo_g[index+1:]]) 
+
+                ordered_prediction.append(i)
+                ordered_ground_truth.append(shortest)
+            else:
+                ordered_prediction.append(i)
+                ordered_ground_truth.append(torch.stack([torch.mean(i), torch.mean(i)]))
+        
+        #pdb.set_trace()
         final_loss = torch.norm(torch.stack(ordered_prediction)- torch.stack(ordered_ground_truth))
-
-
-        return self.topfn(dgminfo) + self.topfn2(dgminfo)
+        
+        return final_loss #self.topfn(dgminfo) + self.topfn2(dgminfo)
 
 tloss = TopLoss((50,50)) # topology penalty
 dloss = nn.MSELoss() # data loss
@@ -129,4 +135,4 @@ for i in range(3):
     ax[i].set_yticklabels([])
     ax[i].set_xticklabels([])
     ax[i].tick_params(bottom=False, left=False)
-plt.savefig('noisy_circle.png')
+plt.savefig('general_zero_hom.png')
