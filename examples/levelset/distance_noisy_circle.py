@@ -1,7 +1,7 @@
 from __future__ import print_function
 import torch, torch.nn as nn, numpy as np, matplotlib.pyplot as plt
 from topologylayer.nn import LevelSetLayer2D, SumBarcodeLengths, PartialSumBarcodeLengths
-#import pdb
+import pdb
 # generate circle on grid
 # generate circle on grid
 n = 50
@@ -64,6 +64,7 @@ class TopLoss(nn.Module):
         """
         
         ############ Code starts ##########################
+        #pdb.set_trace()
         ordered_prediction = []
         ordered_ground_truth = []
         # clean up the dgm info
@@ -83,7 +84,7 @@ class TopLoss(nn.Module):
             # find j which is closest to i
             dist = np.inf
             shortest = None
-            index = 0
+            index = None
             if len(reduced_dgminfo_g) > 0:
                 for j in range(len(reduced_dgminfo_g)):
                     if torch.norm(i-reduced_dgminfo_g[j], 2) < dist:
@@ -91,7 +92,7 @@ class TopLoss(nn.Module):
                         shortest = reduced_dgminfo_g[j]
                         index = j
                 reduced_dgminfo_g = torch.cat([reduced_dgminfo_g[0:index], reduced_dgminfo_g[index+1:]]) 
-
+                #pdb.set_trace()
                 ordered_prediction.append(i)
                 ordered_ground_truth.append(shortest)
             else:
@@ -111,7 +112,7 @@ X_t = torch.tensor(X, dtype=torch.float, requires_grad=False)
 y_t = torch.tensor(y, dtype=torch.float, requires_grad=False)
 ground_t = torch.tensor(beta, dtype=torch.float, requires_grad=False)
 optimizer = torch.optim.Adam([beta_t], lr=1e-2)
-for i in range(500):
+for i in range(1000):
     optimizer.zero_grad()
     tlossi = tloss(beta_t, ground_t)
     dlossi = dloss(y_t, torch.matmul(X_t, beta_t.view(-1)))
