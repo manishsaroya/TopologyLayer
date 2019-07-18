@@ -6,6 +6,7 @@ import argparse
 import datetime
 import os
 from tensorboardX import SummaryWriter
+import time
 
 # generate circle on grid
 # generate circle on grid
@@ -66,24 +67,6 @@ class PersistenceDgm(nn.Module):
         z = np.asarray(reduceinfo(dgminfo[0][0]))
         f = np.asarray(reduceinfo(dgminfo[0][1]))
         return z, f
-        #reduced_dgminfo = []
-        #plt.plot(reduced_dgminfo[:,0], reduced_dgminfo[:,1],'bo')
-        #for i in dgminfo[0][0]:
-        #    if abs(i[0]) != np.inf and abs(i[1])!= np.inf and i[0]!=i[1]:
-        #        reduced_dgminfo.append(i.detach().numpy())
-        #pdb.set_trace()
-        #reduced_dgminfo = np.asarray(reduced_dgminfo)
-
-        # plt.plot(reduced_dgminfo[:,0], reduced_dgminfo[:,1],'bo')
-        
-        # reduced_dgminfo = []
-        # for i in dgminfo[0][1]:
-        #     if abs(i[0]) != np.inf and abs(i[1])!= np.inf and i[0]!=i[1]:
-        #         reduced_dgminfo.append(i.detach().numpy())
-        # reduced_dgminfo = np.asarray(reduced_dgminfo)
-        # plt.plot(reduced_dgminfo[:,0], reduced_dgminfo[:,1],'ro')
-        # plt.show()
-
 
 class TopLoss(nn.Module):
     def __init__(self, size, skip=1):
@@ -132,11 +115,9 @@ class TopLoss(nn.Module):
         final_loss = torch.norm(torch.stack(ordered_prediction)- torch.stack(ordered_ground_truth))
         return final_loss
 
-
     def forward(self, beta, ground):
         dgminfo = self.pdfn(beta)
         dgminfo_g = self.pdfn_g(ground)
-        
         ################## Debugging ###################
         """
         count = 0
@@ -168,6 +149,44 @@ class TopLoss(nn.Module):
         one_loss = self.computeloss(dgminfo[0][1],dgminfo_g[0][1])
         return zero_loss + one_loss #zero_loss #self.topfn(dgminfo) + self.topfn2(dgminfo)
 
+def savepersistence(beta_t, ground_t):
+    # plot figures
+    outplot = PersistenceDgm((50,50))
+    z, f = outplot.dgmplot(beta_t)
+    fig, ax = plt.subplots(ncols=2, figsize=(10,5))
+    ax[0].plot(z[:,0], z[:,1],'bo')
+    ax[0].plot(f[:,0], f[:,1],'ro')
+    ax[0].set_title("output PersistenceDgm")
+    
+    inplot = PersistenceDgm((50,50))
+    z, f = inplot.dgmplot(ground_t)
+    ax[1].plot(z[:,0], z[:,1],'bo')
+    ax[1].plot(f[:,0], f[:,1],'ro')
+    ax[1].set_title("Ground Truth PersistenceDgm")
+ 
+    for i in range(2):
+        ax[i].set_xlabel('Death')
+        ax[i].set_ylabel('Birth')
+    t = time.time()
+    plt.savefig(args.log_dir_top+'imgs/'+'persistence_dgm'+str(t)+'.png')
+
+# save figure
+def saveoutput(beta_t, beta, beta_ols):
+    beta_est = beta_t.detach().numpy()
+    fig, ax = plt.subplots(ncols=3, figsize=(15,5))
+    ax[0].imshow(beta)
+    ax[0].set_title("Truth")
+    ax[1].imshow(beta_ols)
+    ax[1].set_title("OLS")
+    ax[2].imshow(beta_est)
+    ax[2].set_title("Topology Regularization")
+    for i in range(3):
+        ax[i].set_yticklabels([])
+        ax[i].set_xticklabels([])
+        ax[i].tick_params(bottom=False, left=False)
+    t = time.time()
+    plt.savefig(args.log_dir_top+'imgs/'+ 'test.png'+str(t)+'.png')
+
 tloss = TopLoss((50,50)) # topology penalty
 dloss = nn.MSELoss() # data loss
 
@@ -177,7 +196,7 @@ y_t = torch.tensor(y, dtype=torch.float, requires_grad=False)
 ground_t = torch.tensor(beta, dtype=torch.float, requires_grad=False)
 optimizer = torch.optim.Adam([beta_t], lr=1e-2)
 
-for i in range(10):
+for i in range(50):
     optimizer.zero_grad()
     tlossi = tloss(beta_t, ground_t)
     dlossi = dloss(y_t, torch.matmul(X_t, beta_t.view(-1)))
@@ -191,35 +210,14 @@ for i in range(10):
     if (i % 10 == 0):
         print(i, tlossi.item(), dlossi.item())
 
+    if (i%10 ==0):
+        savepersistence(beta_t, ground_t)
+        saveoutput(beta_t, beta, beta_ols)
+
+
+
 writer_top.close()
 writer_mse.close()
 
-# plot figures
-myplot = PersistenceDgm((50,50))
-z, f = myplot.dgmplot(beta_t)
-#plt.plot(z[:,0], z[:,1],'bo')
-#plt.plot(f[:,0], f[:,1],'ro')
-#plt.show()
-#plt.pause(0.001)
-fig, ax = plt.subplots(ncols=2, figsize=(10,5))
-ax[0].plot(z[:,0], z[:,1],'bo')
-ax[0].plot(f[:,0], f[:,1],'ro')
-ax[0].set_title("output PersistenceDgm")
-ax[1].plot(f[:,0], f[:,1],'ro')
-ax[1].set_title("Ground Truth PersistenceDgm")
-plt.savefig('persistence_dgm')
-
-# save figure
-beta_est = beta_t.detach().numpy()
-fig, ax = plt.subplots(ncols=3, figsize=(15,5))
-ax[0].imshow(beta)
-ax[0].set_title("Truth")
-ax[1].imshow(beta_ols)
-ax[1].set_title("OLS")
-ax[2].imshow(beta_est)
-ax[2].set_title("Topology Regularization")
-for i in range(3):
-    ax[i].set_yticklabels([])
-    ax[i].set_xticklabels([])
-    ax[i].tick_params(bottom=False, left=False)
-plt.savefig('test.png')
+savepersistence(beta_t, ground_t)
+saveoutput(beta_t, beta, beta_ols)
