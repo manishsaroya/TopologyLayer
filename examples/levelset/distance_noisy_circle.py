@@ -6,11 +6,12 @@ import argparse
 import datetime
 import os
 from tensorboardX import SummaryWriter
+from scipy.optimize import linear_sum_assignment
 import time
 
 # generate circle on grid
 # generate circle on grid
-n = 50
+n = 20
 def circlefn(i, j, n):
     r = np.sqrt((i - n/2.)**2 + (j - n/2.)**2)
     return np.exp(-(r - n/3.)**2/(n*2))
@@ -43,7 +44,7 @@ if not os.path.exists(args.log_dir_mse):
     os.makedirs(args.log_dir_mse+'imgs/')
     writer_mse = SummaryWriter(logdir= args.log_dir_mse)
 
-m = 1500
+m = 150
 X = np.random.randn(m, n**2)
 y = X.dot(beta.flatten()) + 0.05*np.random.randn(m)
 beta_ols = (np.linalg.lstsq(X, y, rcond=None)[0]).reshape(n,n)
@@ -76,8 +77,22 @@ class TopLoss(nn.Module):
         self.topfn = PartialSumBarcodeLengths(dim=1, skip=skip)
         self.topfn2 = SumBarcodeLengths(dim=0)
 
+    def correspondence(self, reduced_dgminfo, reduced_dgminfo_g):
+        ################### Hungarian algorithm ###############
+        #creating a cost matrix with rows containing ground persistence and columns prediction persistence
+        cost = []
+        for i in reduced_dgminfo:
+            row = []
+            for j in reduced_dgminfo_g:
+                row.append(torch.norm(i-j).detach().numpy())
+            cost.append(row)
+        #pdb.set_trace()
+        return linear_sum_assignment(cost)
+        #######################################################
+
+
     def computeloss(self, dgminfohom, dgminfohom_g):
-        ordered_prediction = []
+        #ordered_prediction = []
         ordered_ground_truth = []
         # clean up the dgm info
         reduced_dgminfo = []
@@ -90,8 +105,15 @@ class TopLoss(nn.Module):
                 reduced_dgminfo_g.append(i)
         reduced_dgminfo = torch.stack(reduced_dgminfo)
         reduced_dgminfo_g = torch.stack(reduced_dgminfo_g)
+        
         #pdb.set_trace()
+        # get correspondence between persistence points
+        p_ind, g_ind = self.correspondence(reduced_dgminfo, reduced_dgminfo_g)
+        #pdb.set_trace()
+        #for i in range(len(row_ind)):
+        #    ordered_prediction
 
+        """
         for i in reduced_dgminfo:
             # find j which is closest to i
             dist = np.inf
@@ -110,9 +132,16 @@ class TopLoss(nn.Module):
             else:
                 ordered_prediction.append(i)
                 ordered_ground_truth.append(torch.stack([torch.mean(i), torch.mean(i)]))
-        
+        """
+        # fill mean in all ground truth
+        for i in reduced_dgminfo:
+            ordered_ground_truth.append(torch.stack([torch.mean(i), torch.mean(i)]))  # stack not required we don't care for ground backprop.
+
+        for i in range(len(p_ind)):
+            ordered_ground_truth[p_ind[i]] = reduced_dgminfo_g[g_ind[i]]
+
         #pdb.set_trace()
-        final_loss = torch.norm(torch.stack(ordered_prediction)- torch.stack(ordered_ground_truth))
+        final_loss = torch.norm(reduced_dgminfo - torch.stack(ordered_ground_truth))
         return final_loss
 
     def forward(self, beta, ground):
@@ -151,14 +180,14 @@ class TopLoss(nn.Module):
 
 def savepersistence(beta_t, ground_t):
     # plot figures
-    outplot = PersistenceDgm((50,50))
+    outplot = PersistenceDgm((20,20))
     z, f = outplot.dgmplot(beta_t)
     fig, ax = plt.subplots(ncols=2, figsize=(10,5))
     ax[0].plot(z[:,0], z[:,1],'bo')
     ax[0].plot(f[:,0], f[:,1],'ro')
     ax[0].set_title("output PersistenceDgm")
     
-    inplot = PersistenceDgm((50,50))
+    inplot = PersistenceDgm((20,20))
     z, f = inplot.dgmplot(ground_t)
     ax[1].plot(z[:,0], z[:,1],'bo')
     ax[1].plot(f[:,0], f[:,1],'ro')
@@ -187,7 +216,7 @@ def saveoutput(beta_t, beta, beta_ols):
     t = time.time()
     plt.savefig(args.log_dir_top+'imgs/'+ 'test.png'+str(t)+'.png')
 
-tloss = TopLoss((50,50)) # topology penalty
+tloss = TopLoss((20,20)) # topology penalty
 dloss = nn.MSELoss() # data loss
 
 beta_t = torch.autograd.Variable(torch.tensor(beta_ols).type(torch.float), requires_grad=True)
@@ -196,11 +225,11 @@ y_t = torch.tensor(y, dtype=torch.float, requires_grad=False)
 ground_t = torch.tensor(beta, dtype=torch.float, requires_grad=False)
 optimizer = torch.optim.Adam([beta_t], lr=1e-2)
 
-for i in range(50):
+for i in range(1500):
     optimizer.zero_grad()
     tlossi = tloss(beta_t, ground_t)
     dlossi = dloss(y_t, torch.matmul(X_t, beta_t.view(-1)))
-    loss = 1.1*tlossi + dlossi
+    loss = 0.1*tlossi + dlossi
     loss.backward()
     optimizer.step()
 
@@ -213,8 +242,6 @@ for i in range(50):
     if (i%10 ==0):
         savepersistence(beta_t, ground_t)
         saveoutput(beta_t, beta, beta_ols)
-
-
 
 writer_top.close()
 writer_mse.close()
