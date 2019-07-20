@@ -44,7 +44,7 @@ if not os.path.exists(args.log_dir_mse):
     os.makedirs(args.log_dir_mse+'imgs/')
     writer_mse = SummaryWriter(logdir= args.log_dir_mse)
 
-m = 150
+m = 350
 X = np.random.randn(m, n**2)
 y = X.dot(beta.flatten()) + 0.05*np.random.randn(m)
 beta_ols = (np.linalg.lstsq(X, y, rcond=None)[0]).reshape(n,n)
@@ -164,23 +164,6 @@ def savepersistence(beta_t, ground_t, beta, beta_ols):
     t = time.time()
     plt.savefig(args.log_dir_top+'imgs/'+'persistence_dgm'+str(t)+'.png')
 
-# save figure
-def saveoutput(beta_t, beta, beta_ols):
-    beta_est = beta_t.detach().numpy()
-    fig, ax = plt.subplots(ncols=3, figsize=(15,5))
-    ax[0].imshow(beta)
-    ax[0].set_title("Truth")
-    ax[1].imshow(beta_ols)
-    ax[1].set_title("OLS")
-    ax[2].imshow(beta_est)
-    ax[2].set_title("Topology Regularization")
-    for i in range(3):
-        ax[i].set_yticklabels([])
-        ax[i].set_xticklabels([])
-        ax[i].tick_params(bottom=False, left=False)
-    t = time.time()
-    plt.savefig(args.log_dir_top+'imgs/'+ 'test.png'+str(t)+'.png')
-
 tloss = TopLoss((20,20)) # topology penalty
 dloss = nn.MSELoss() # data loss
 
@@ -194,7 +177,7 @@ for i in range(1500):
     optimizer.zero_grad()
     tlossi = tloss(beta_t, ground_t)
     dlossi = dloss(y_t, torch.matmul(X_t, beta_t.view(-1)))
-    loss = 0.1*tlossi + dlossi
+    loss = 0.02*tlossi + dlossi
     loss.backward()
     optimizer.step()
 
