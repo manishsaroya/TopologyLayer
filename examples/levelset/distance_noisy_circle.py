@@ -109,30 +109,6 @@ class TopLoss(nn.Module):
         #pdb.set_trace()
         # get correspondence between persistence points
         p_ind, g_ind = self.correspondence(reduced_dgminfo, reduced_dgminfo_g)
-        #pdb.set_trace()
-        #for i in range(len(row_ind)):
-        #    ordered_prediction
-
-        """
-        for i in reduced_dgminfo:
-            # find j which is closest to i
-            dist = np.inf
-            shortest = None
-            index = None
-            if len(reduced_dgminfo_g) > 0:
-                for j in range(len(reduced_dgminfo_g)):
-                    if torch.norm(i-reduced_dgminfo_g[j], 2) < dist:
-                        dist = torch.norm(i-reduced_dgminfo_g[j])
-                        shortest = reduced_dgminfo_g[j]
-                        index = j
-                reduced_dgminfo_g = torch.cat([reduced_dgminfo_g[0:index], reduced_dgminfo_g[index+1:]]) 
-                #pdb.set_trace()
-                ordered_prediction.append(i)
-                ordered_ground_truth.append(shortest)
-            else:
-                ordered_prediction.append(i)
-                ordered_ground_truth.append(torch.stack([torch.mean(i), torch.mean(i)]))
-        """
         # fill mean in all ground truth
         for i in reduced_dgminfo:
             ordered_ground_truth.append(torch.stack([torch.mean(i), torch.mean(i)]))  # stack not required we don't care for ground backprop.
@@ -140,62 +116,51 @@ class TopLoss(nn.Module):
         for i in range(len(p_ind)):
             ordered_ground_truth[p_ind[i]] = reduced_dgminfo_g[g_ind[i]]
 
-        #pdb.set_trace()
         final_loss = torch.norm(reduced_dgminfo - torch.stack(ordered_ground_truth))
         return final_loss
 
     def forward(self, beta, ground):
         dgminfo = self.pdfn(beta)
         dgminfo_g = self.pdfn_g(ground)
-        ################## Debugging ###################
-        """
-        count = 0
-        total_start_count = 0
-        total_end_count = 0
-        for i in range(dgminfo[0][0].shape[0]):
-            if abs(dgminfo[0][0][i][0])==np.inf:
-                total_start_count = total_start_count +1
-            if abs(dgminfo[0][0][i][1])==np.inf:
-                total_end_count = total_end_count +1
-            if dgminfo[0][0][i][0]==dgminfo[0][0][i][1]:
-                count = count + 1
-        #pdb.set_trace()
-        count_g = 0
-        total_start_count_g = 0
-        total_end_count_g = 0
-        for i in range(dgminfo_g[0][0].shape[0]):
-            if abs(dgminfo_g[0][0][i][0])==np.inf:
-                total_start_count_g = total_start_count_g +1
-            if abs(dgminfo_g[0][0][i][1])==np.inf:
-                total_end_count_g = total_end_count_g +1
-            if dgminfo_g[0][0][i][0]==dgminfo_g[0][0][i][1]:
-                count_g = count_g + 1
-        #pdb.set_trace()
-        """
-        
+
         ############ Code starts ##########################
         zero_loss = self.computeloss(dgminfo[0][0],dgminfo_g[0][0])
         one_loss = self.computeloss(dgminfo[0][1],dgminfo_g[0][1])
         return zero_loss + one_loss #zero_loss #self.topfn(dgminfo) + self.topfn2(dgminfo)
 
-def savepersistence(beta_t, ground_t):
-    # plot figures
+def savepersistence(beta_t, ground_t, beta, beta_ols):
+    ########### save persistence Diagram #######
     outplot = PersistenceDgm((20,20))
     z, f = outplot.dgmplot(beta_t)
-    fig, ax = plt.subplots(ncols=2, figsize=(10,5))
-    ax[0].plot(z[:,0], z[:,1],'bo')
-    ax[0].plot(f[:,0], f[:,1],'ro')
-    ax[0].set_title("output PersistenceDgm")
+    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(15,10))
+    ax[0][0].set(xlim=(-1.1, 1.1), ylim=(-1.1, 1.1))
+    ax[0][0].plot(z[:,0], z[:,1],'bo')
+    ax[0][0].plot(f[:,0], f[:,1],'ro')
+    ax[0][0].set_title("output PersistenceDgm")
     
     inplot = PersistenceDgm((20,20))
     z, f = inplot.dgmplot(ground_t)
-    ax[1].plot(z[:,0], z[:,1],'bo')
-    ax[1].plot(f[:,0], f[:,1],'ro')
-    ax[1].set_title("Ground Truth PersistenceDgm")
+    ax[0][1].set(xlim=(-1.1, 1.1), ylim=(-1.1, 1.1))
+    ax[0][1].plot(z[:,0], z[:,1],'bo')
+    ax[0][1].plot(f[:,0], f[:,1],'ro')
+    ax[0][1].set_title("Ground Truth PersistenceDgm")
  
     for i in range(2):
-        ax[i].set_xlabel('Death')
-        ax[i].set_ylabel('Birth')
+        ax[0][i].set_xlabel('Death')
+        ax[0][i].set_ylabel('Birth')
+
+    ############ save outputs #############
+    beta_est = beta_t.detach().numpy()
+    ax[1][0].imshow(beta)
+    ax[1][0].set_title("Truth")
+    ax[1][1].imshow(beta_ols)
+    ax[1][1].set_title("OLS")
+    ax[1][2].imshow(beta_est)
+    ax[1][2].set_title("Topology Regularization")
+    for i in range(3):
+        ax[1][i].set_yticklabels([])
+        ax[1][i].set_xticklabels([])
+        ax[1][i].tick_params(bottom=False, left=False)
     t = time.time()
     plt.savefig(args.log_dir_top+'imgs/'+'persistence_dgm'+str(t)+'.png')
 
@@ -240,11 +205,9 @@ for i in range(1500):
         print(i, tlossi.item(), dlossi.item())
 
     if (i%10 ==0):
-        savepersistence(beta_t, ground_t)
-        saveoutput(beta_t, beta, beta_ols)
+        savepersistence(beta_t, ground_t, beta, beta_ols)
 
 writer_top.close()
 writer_mse.close()
 
-savepersistence(beta_t, ground_t)
-saveoutput(beta_t, beta, beta_ols)
+savepersistence(beta_t, ground_t, beta, beta_ols)
