@@ -1,7 +1,6 @@
 import torch, torch.nn as nn, numpy as np, matplotlib.pyplot as plt
 from topological_loss import PersistenceDgm
 import time
-
 def circlefn(i, j, n):
     r = np.sqrt((i - n/2.)**2 + (j - n/2.)**2)
     return np.exp(-(r - n/3.)**2/(n*2))
@@ -20,15 +19,19 @@ def savepersistence(n, beta_t, ground_t, beta, beta_ols, path):
     z, f = outplot.dgmplot(beta_t)
     fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(15,10))
     ax[0][0].set(xlim=(-1.1, 1.1), ylim=(-1.1, 1.1))
-    ax[0][0].plot(z[:,0], z[:,1],'bo')
-    ax[0][0].plot(f[:,0], f[:,1],'ro')
+    if len(z)>0:
+    	ax[0][0].plot(z[:,0], z[:,1],'bo')
+    if len(f)>0:
+    	ax[0][0].plot(f[:,0], f[:,1],'ro')
     ax[0][0].set_title("output PersistenceDgm")
     
     inplot = PersistenceDgm((n,n))
     z, f = inplot.dgmplot(ground_t)
     ax[0][1].set(xlim=(-1.1, 1.1), ylim=(-1.1, 1.1))
-    ax[0][1].plot(z[:,0], z[:,1],'bo')
-    ax[0][1].plot(f[:,0], f[:,1],'ro')
+    if len(z)>0:
+    	ax[0][1].plot(z[:,0], z[:,1],'bo')
+    if len(f)>0:
+    	ax[0][1].plot(f[:,0], f[:,1],'ro')
     ax[0][1].set_title("Ground Truth PersistenceDgm")
  
     for i in range(2):
