@@ -18,21 +18,21 @@ def savepersistence(n, beta_t, ground_t, beta, beta_ols, path):
     outplot = PersistenceDgm((n,n))
     z, f = outplot.dgmplot(beta_t)
     fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(15,10))
+    ax[0][2].set(xlim=(-1.1, 1.1), ylim=(-1.1, 1.1))
+    if len(z)>0:
+    	ax[0][2].plot(z[:,0], z[:,1],'bo')
+    if len(f)>0:
+    	ax[0][2].plot(f[:,0], f[:,1],'ro')
+    ax[0][2].set_title("output PersistenceDgm")
+    
+    inplot = PersistenceDgm((n,n))
+    z, f = inplot.dgmplot(ground_t)
     ax[0][0].set(xlim=(-1.1, 1.1), ylim=(-1.1, 1.1))
     if len(z)>0:
     	ax[0][0].plot(z[:,0], z[:,1],'bo')
     if len(f)>0:
     	ax[0][0].plot(f[:,0], f[:,1],'ro')
-    ax[0][0].set_title("output PersistenceDgm")
-    
-    inplot = PersistenceDgm((n,n))
-    z, f = inplot.dgmplot(ground_t)
-    ax[0][1].set(xlim=(-1.1, 1.1), ylim=(-1.1, 1.1))
-    if len(z)>0:
-    	ax[0][1].plot(z[:,0], z[:,1],'bo')
-    if len(f)>0:
-    	ax[0][1].plot(f[:,0], f[:,1],'ro')
-    ax[0][1].set_title("Ground Truth PersistenceDgm")
+    ax[0][0].set_title("Ground Truth PersistenceDgm")
  
     for i in range(2):
         ax[0][i].set_xlabel('Death')
