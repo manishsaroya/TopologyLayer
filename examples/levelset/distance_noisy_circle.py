@@ -7,11 +7,12 @@ import argparse
 import datetime
 import os
 from tensorboardX import SummaryWriter
-
+from x_map_gen import Exploration
+import pickle
 
 ##############PARAMETERS ##############
-n = 20
-m = 350
+n = 32
+m = 700
 parser = argparse.ArgumentParser()
 parser.add_argument('--log_dir_top', type=str, default='./logs/top/'+ datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")+'/')
 parser.add_argument('--log_dir_mse', type=str, default='./logs/mse/'+ datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")+'/')
@@ -35,6 +36,16 @@ if not os.path.exists(args.log_dir_mse):
 
 # generate circle on grid
 beta = gen_circle(n)
+#explore = Exploration(32, 15, 0.7)
+#beta = explore.generate_map()
+
+#with open('ground_truth_{}.pickle'.format(32), 'wb') as handle:
+#    pickle.dump(beta, handle)
+#with open('ground_truth_{}.pickle'.format(32),'rb') as tf:
+#        beta = pickle.load(tf)
+#plt.imshow(beta)
+#plt.show()
+#pdb.set_trace()
 
 X = np.random.randn(m, n**2)
 y = X.dot(beta.flatten()) + 0.05*np.random.randn(m)
