@@ -40,39 +40,40 @@ class TopLoss(nn.Module):
             for j in reduced_dgminfo_g:
                 row.append(torch.norm(i-j).detach().numpy())
             cost.append(row)
-        #pdb.set_trace()
         return linear_sum_assignment(cost)
         #######################################################
 
+    def filtration(self, info):
+        end, start = info[:,0], info[:,1]
+        end_ = torch.where(torch.abs(end)!=np.inf, end, torch.zeros(end.shape))
+        start_ = torch.where(torch.abs(start)!=np.inf, start, torch.zeros(start.shape))
+        # remove infinite values
+        index = torch.nonzero(end_ * start_)
+        out = torch.index_select(info, 0, torch.squeeze(index))
+        # remove the y=x line features
+        end, start = out[:,0], out[:,1]
+        index = torch.nonzero(end - start)
+        out = torch.index_select(out,0,torch.squeeze(index))
+        return out
+
+
 
     def computeloss(self, dgminfohom, dgminfohom_g):
-        #ordered_prediction = []
-        ordered_ground_truth = []
-        # clean up the dgm info
-        reduced_dgminfo = []
-        reduced_dgminfo_g = []
-        for i in dgminfohom:
-            if abs(i[0]) != np.inf and abs(i[1])!= np.inf and i[0]!=i[1]:
-                reduced_dgminfo.append(i)
-        for i in dgminfohom_g:
-            if abs(i[0]) != np.inf and abs(i[1])!= np.inf and i[0]!=i[1]:
-                reduced_dgminfo_g.append(i)
-        #pdb.set_trace()
-        #reduced_dgminfo = torch.stack(reduced_dgminfo)
-        #reduced_dgminfo_g = torch.stack(reduced_dgminfo_g)
-        
-        #pdb.set_trace()
+
+        reduced_dgminfo = self.filtration(dgminfohom)
+        reduced_dgminfo_g = self.filtration(dgminfohom_g)
+        ordered_ground_truth = torch.zeros(reduced_dgminfo.shape)
+
         # get correspondence between persistence points
         p_ind, g_ind = self.correspondence(reduced_dgminfo, reduced_dgminfo_g)
         # fill mean in all ground truth
-        for i in reduced_dgminfo:
-            ordered_ground_truth.append(torch.cat((torch.unsqueeze(torch.mean(i),0), torch.unsqueeze(torch.mean(i),0))))
-            #ordered_ground_truth.append(torch.stack([torch.mean(i), torch.mean(i)]))  #torch.cat((torch.unsqueeze(torch.mean(i),0), torch.unsqueeze(torch.mean(i),0)))# stack not required we don't care for ground backprop.
-
+        # fill everything with mean
+        for i in range(reduced_dgminfo.shape[0]):
+            ordered_ground_truth[i] = torch.cat((torch.unsqueeze(torch.mean(reduced_dgminfo[i]),0), torch.unsqueeze(torch.mean(reduced_dgminfo[i]),0)))
         for i in range(len(p_ind)):
             ordered_ground_truth[p_ind[i]] = reduced_dgminfo_g[g_ind[i]]
         #pdb.set_trace()
-        final_loss = torch.norm(torch.cat(reduced_dgminfo) - torch.cat(ordered_ground_truth))
+        final_loss = torch.norm(torch.reshape(reduced_dgminfo,(-1,)) - torch.reshape(ordered_ground_truth,(-1,)))
         return final_loss
 
     def forward(self, beta, ground):
