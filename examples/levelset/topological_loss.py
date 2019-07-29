@@ -13,7 +13,7 @@ def reduceinfo(info):
 class PersistenceDgm(nn.Module):
     def __init__(self, size):
         super(PersistenceDgm, self).__init__()
-        self.pdfn = LevelSetLayer2D(size=size,  sublevel=False)
+        self.pdfn = LevelSetLayer2D(size=size, sublevel=False)
 
     def dgmplot(self, image):
         dgminfo = self.pdfn(image)
@@ -76,9 +76,9 @@ class TopLoss(nn.Module):
         final_loss = torch.norm(torch.reshape(reduced_dgminfo,(-1,)) - torch.reshape(ordered_ground_truth,(-1,)))
         return final_loss
 
-    def forward(self, beta, ground):
+    def forward(self, beta, ground, dgminfo_g):
         dgminfo = self.pdfn(beta)
-        dgminfo_g = self.pdfn_g(ground)
+        #dgminfo_g = self.pdfn_g(ground)
         ############ Code starts ##########################
         zero_loss = self.computeloss(dgminfo[0][0],dgminfo_g[0][0])
         one_loss = self.computeloss(dgminfo[0][1],dgminfo_g[0][1])

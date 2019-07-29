@@ -42,7 +42,11 @@ beta = gen_circle(n)
 #with open('ground_truth_{}.pickle'.format(32), 'wb') as handle:
 #    pickle.dump(beta, handle)
 with open('ground_truth_{}.pickle'.format(32),'rb') as tf:
-        beta = pickle.load(tf)
+    beta = pickle.load(tf)
+
+with open('ground_truth_peristenceDgm{}.pickle'.format(32), 'rb') as tf:
+    gpersistence = pickle.load(tf)
+
 #plt.imshow(beta)
 #plt.show()
 #pdb.set_trace()
@@ -62,7 +66,7 @@ optimizer = torch.optim.Adam([beta_t], lr=1e-2)
 
 for i in range(1500):
     optimizer.zero_grad()
-    tlossi = tloss(beta_t, ground_t)
+    tlossi = tloss(beta_t, ground_t, gpersistence)
     dlossi = dloss(y_t, torch.matmul(X_t, beta_t.view(-1)))
     loss = 0.02*tlossi + dlossi
     loss.backward()
