@@ -12,7 +12,7 @@ import pickle
 
 ##############PARAMETERS ##############
 n = 32
-m = 700
+m = 900
 parser = argparse.ArgumentParser()
 parser.add_argument('--log_dir_top', type=str, default='./logs/top/'+ datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")+'/')
 parser.add_argument('--log_dir_mse', type=str, default='./logs/mse/'+ datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")+'/')
@@ -41,8 +41,8 @@ beta = gen_circle(n)
 
 #with open('ground_truth_{}.pickle'.format(32), 'wb') as handle:
 #    pickle.dump(beta, handle)
-#with open('ground_truth_{}.pickle'.format(32),'rb') as tf:
-#        beta = pickle.load(tf)
+with open('ground_truth_{}.pickle'.format(32),'rb') as tf:
+        beta = pickle.load(tf)
 #plt.imshow(beta)
 #plt.show()
 #pdb.set_trace()
