@@ -18,9 +18,22 @@ class PersistenceDgm(nn.Module):
     def dgmplot(self, image):
         dgminfo = self.pdfn(image)
         #pdb.set_trace()
-        z = np.asarray(reduceinfo(dgminfo[0][0]))
-        f = np.asarray(reduceinfo(dgminfo[0][1]))
-        return z, f
+        z = self.filtration(dgminfo[0][0])
+        f = self.filtration(dgminfo[0][1])
+        return z.detach().numpy(), f.detach().numpy()
+
+    def filtration(self, info):
+        end, start = info[:,0], info[:,1]
+        end_ = torch.where(torch.abs(end)!=np.inf, torch.ones(end.shape), torch.zeros(end.shape))
+        start_ = torch.where(torch.abs(start)!=np.inf, torch.ones(start.shape), torch.zeros(start.shape))
+        # remove infinite values
+        index = torch.nonzero(end_ * start_)
+        out = torch.index_select(info, 0, torch.squeeze(index))
+        # remove the y=x line features
+        end, start = out[:,0], out[:,1]
+        index = torch.nonzero(end - start)
+        out = torch.index_select(out,0,torch.squeeze(index))
+        return out
 
 
 class TopLoss(nn.Module):
@@ -45,8 +58,8 @@ class TopLoss(nn.Module):
 
     def filtration(self, info):
         end, start = info[:,0], info[:,1]
-        end_ = torch.where(torch.abs(end)!=np.inf, end, torch.zeros(end.shape))
-        start_ = torch.where(torch.abs(start)!=np.inf, start, torch.zeros(start.shape))
+        end_ = torch.where(torch.abs(end)!=np.inf, torch.ones(end.shape), torch.zeros(end.shape))
+        start_ = torch.where(torch.abs(start)!=np.inf, torch.ones(start.shape), torch.zeros(start.shape))
         # remove infinite values
         index = torch.nonzero(end_ * start_)
         out = torch.index_select(info, 0, torch.squeeze(index))

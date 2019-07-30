@@ -12,7 +12,7 @@ import pickle
 
 ##############PARAMETERS ##############
 n = 32
-m = 900
+m = 800
 parser = argparse.ArgumentParser()
 parser.add_argument('--log_dir_top', type=str, default='./logs/top/'+ datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")+'/')
 parser.add_argument('--log_dir_mse', type=str, default='./logs/mse/'+ datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")+'/')
@@ -68,7 +68,7 @@ for i in range(1500):
     optimizer.zero_grad()
     tlossi = tloss(beta_t, ground_t, gpersistence)
     dlossi = dloss(y_t, torch.matmul(X_t, beta_t.view(-1)))
-    loss = 0.02*tlossi + dlossi
+    loss = 0.1 *tlossi + dlossi
     loss.backward()
     optimizer.step()
 
